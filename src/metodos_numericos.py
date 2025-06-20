@@ -18,20 +18,41 @@ class MetodosNumericos:
         self.tolerancia = tolerancia
         self.max_iteraciones = max_iteraciones
     
-    def biseccion(self, funcion, a, b):
+    def biseccion(self, funcion, a, b, blackjack_obj=None):
         """
-        Método de Bisección para encontrar raíces de ecuaciones no lineales.
+        Método de Bisección adaptado para funciones cuadráticas.
         
         Args:
             funcion: Función f(x) de la cual se busca la raíz
             a (float): Límite inferior del intervalo
             b (float): Límite superior del intervalo
+            blackjack_obj: Objeto BlackjackMath para función modificada
             
         Returns:
             dict: Diccionario con resultados del método
         """
-        # Verificar que existe raíz en el intervalo
-        if funcion(a) * funcion(b) >= 0:
+        # Usar función modificada para crear cambio de signo
+        if blackjack_obj:
+            funcion_uso = blackjack_obj.funcion_objetivo_biseccion
+        else:
+            funcion_uso = funcion
+        
+        # Verificar que existe cambio de signo
+        try:
+            fa = funcion_uso(a)
+            fb = funcion_uso(b)
+        except:
+            return {
+                'raiz': None,
+                'iteraciones': 0,
+                'convergencia': False,
+                'error': float('inf'),
+                'historial_x': [],
+                'historial_error': [],
+                'mensaje': 'Error al evaluar función en los límites'
+            }
+        
+        if fa * fb >= 0:
             return {
                 'raiz': None,
                 'iteraciones': 0,
@@ -59,7 +80,7 @@ class MetodosNumericos:
             historial_error.append(error)
             
             # Evaluar función en el punto medio
-            fc = funcion(c)
+            fc = funcion_uso(c)
             
             # Verificar si encontramos la raíz exacta
             if abs(fc) < self.tolerancia:
@@ -74,7 +95,7 @@ class MetodosNumericos:
                 }
             
             # Actualizar intervalo
-            if funcion(a) * fc < 0:
+            if funcion_uso(a) * fc < 0:
                 b = c
             else:
                 a = c
@@ -97,6 +118,7 @@ class MetodosNumericos:
     def newton_raphson(self, funcion, derivada, x0):
         """
         Método de Newton-Raphson para encontrar raíces de ecuaciones no lineales.
+        Modificado para manejar funciones cuadráticas donde f'(raíz) = 0.
         
         Args:
             funcion: Función f(x) de la cual se busca la raíz
@@ -114,11 +136,10 @@ class MetodosNumericos:
         
         while iteracion < self.max_iteraciones and error > self.tolerancia:
             # Evaluar función y derivada
-            fx = funcion(x_actual)
-            fpx = derivada(x_actual)
-            
-            # Verificar que la derivada no sea cero
-            if abs(fpx) < 1e-15:
+            try:
+                fx = funcion(x_actual)
+                fpx = derivada(x_actual)
+            except:
                 return {
                     'raiz': x_actual,
                     'iteraciones': iteracion,
@@ -126,8 +147,44 @@ class MetodosNumericos:
                     'error': float('inf'),
                     'historial_x': historial_x,
                     'historial_error': historial_error,
-                    'mensaje': 'Derivada muy pequeña - posible punto crítico'
+                    'mensaje': 'Error al evaluar función o derivada'
                 }
+            
+            # Para funciones cuadráticas, verificar si ya llegamos al mínimo
+            if abs(fx) < self.tolerancia:
+                return {
+                    'raiz': x_actual,
+                    'iteraciones': iteracion,
+                    'convergencia': True,
+                    'error': abs(fx),
+                    'historial_x': historial_x,
+                    'historial_error': historial_error,
+                    'mensaje': 'Convergencia exitosa - mínimo encontrado'
+                }
+            
+            # Verificar derivada muy pequeña (cerca del mínimo)
+            if abs(fpx) < 1e-12:
+                # Para funciones cuadráticas, si estamos muy cerca del mínimo
+                if abs(fx) < 1e-6:
+                    return {
+                        'raiz': x_actual,
+                        'iteraciones': iteracion,
+                        'convergencia': True,
+                        'error': abs(fx),
+                        'historial_x': historial_x,
+                        'historial_error': historial_error,
+                        'mensaje': 'Convergencia exitosa - en el mínimo'
+                    }
+                else:
+                    return {
+                        'raiz': x_actual,
+                        'iteraciones': iteracion,
+                        'convergencia': False,
+                        'error': float('inf'),
+                        'historial_x': historial_x,
+                        'historial_error': historial_error,
+                        'mensaje': 'Derivada muy pequeña - posible punto crítico'
+                    }
             
             # Fórmula de Newton-Raphson
             x_nuevo = x_actual - fx / fpx
@@ -136,18 +193,6 @@ class MetodosNumericos:
             error = abs(x_nuevo - x_actual)
             historial_x.append(x_nuevo)
             historial_error.append(error)
-            
-            # Verificar convergencia por valor de función
-            if abs(funcion(x_nuevo)) < self.tolerancia:
-                return {
-                    'raiz': x_nuevo,
-                    'iteraciones': iteracion + 1,
-                    'convergencia': True,
-                    'error': error,
-                    'historial_x': historial_x,
-                    'historial_error': historial_error,
-                    'mensaje': 'Convergencia exitosa'
-                }
             
             x_actual = x_nuevo
             iteracion += 1
@@ -181,7 +226,18 @@ class MetodosNumericos:
         
         while iteracion < self.max_iteraciones and error > self.tolerancia:
             # Aplicar iteración de punto fijo
-            x_nuevo = g_funcion(x_actual)
+            try:
+                x_nuevo = g_funcion(x_actual)
+            except:
+                return {
+                    'raiz': x_actual,
+                    'iteraciones': iteracion,
+                    'convergencia': False,
+                    'error': float('inf'),
+                    'historial_x': historial_x,
+                    'historial_error': historial_error,
+                    'mensaje': 'Error al evaluar función g(x)'
+                }
             
             # Calcular error
             error = abs(x_nuevo - x_actual)
@@ -223,116 +279,4 @@ class MetodosNumericos:
             'historial_x': historial_x,
             'historial_error': historial_error,
             'mensaje': 'Convergencia exitosa' if error <= self.tolerancia else 'Máximo de iteraciones alcanzado'
-        }
-    
-    def comparar_metodos(self, funcion, derivada, g_funcion, a, b, x0):
-        """
-        Ejecuta y compara los tres métodos numéricos.
-        
-        Args:
-            funcion: Función f(x) objetivo
-            derivada: Derivada f'(x)
-            g_funcion: Función g(x) para punto fijo
-            a, b: Intervalo para bisección
-            x0: Valor inicial para Newton-Raphson y Punto Fijo
-            
-        Returns:
-            dict: Comparación completa de los métodos
-        """
-        resultados = {}
-        
-        # Ejecutar Bisección
-        resultados['biseccion'] = self.biseccion(funcion, a, b)
-        
-        # Ejecutar Newton-Raphson
-        resultados['newton_raphson'] = self.newton_raphson(funcion, derivada, x0)
-        
-        # Ejecutar Punto Fijo
-        resultados['punto_fijo'] = self.punto_fijo(g_funcion, x0)
-        
-        # Análisis comparativo
-        metodos_convergentes = {k: v for k, v in resultados.items() if v['convergencia']}
-        
-        if metodos_convergentes:
-            # Encontrar el más eficiente
-            mejor_iteraciones = min(metodos_convergentes.values(), key=lambda x: x['iteraciones'])
-            mejor_precision = min(metodos_convergentes.values(), key=lambda x: x['error'])
-            
-            resultados['analisis'] = {
-                'metodos_convergentes': list(metodos_convergentes.keys()),
-                'mejor_iteraciones': mejor_iteraciones,
-                'mejor_precision': mejor_precision,
-                'raiz_teorica': None  # Se puede calcular analíticamente si es necesario
-            }
-        else:
-            resultados['analisis'] = {
-                'metodos_convergentes': [],
-                'mejor_iteraciones': None,
-                'mejor_precision': None,
-                'raiz_teorica': None
-            }
-        
-        return resultados
-    
-    def analizar_convergencia(self, resultado):
-        """
-        Analiza las propiedades de convergencia de un método.
-        
-        Args:
-            resultado (dict): Resultado de un método numérico
-            
-        Returns:
-            dict: Análisis de convergencia
-        """
-        if not resultado['convergencia'] or len(resultado['historial_error']) < 2:
-            return {
-                'tipo_convergencia': 'No convergente',
-                'orden_convergencia': None,
-                'factor_convergencia': None
-            }
-        
-        errores = resultado['historial_error'][1:]  # Excluir el primer error (inf)
-        
-        # Estimar orden de convergencia
-        if len(errores) >= 3:
-            try:
-                # Método para estimar orden de convergencia
-                ratios = []
-                for i in range(1, len(errores) - 1):
-                    if errores[i] > 0 and errores[i+1] > 0 and errores[i-1] > 0:
-                        ratio = math.log(errores[i+1] / errores[i]) / math.log(errores[i] / errores[i-1])
-                        ratios.append(ratio)
-                
-                if ratios:
-                    orden_estimado = np.mean(ratios)
-                    
-                    if orden_estimado < 1.5:
-                        tipo = 'Lineal'
-                    elif orden_estimado < 2.5:
-                        tipo = 'Cuadrática'
-                    else:
-                        tipo = 'Superlineal'
-                    
-                    return {
-                        'tipo_convergencia': tipo,
-                        'orden_convergencia': orden_estimado,
-                        'factor_convergencia': errores[-1] / errores[-2] if len(errores) >= 2 else None
-                    }
-            except:
-                pass
-        
-        # Análisis básico si no se puede estimar el orden
-        factor = errores[-1] / errores[-2] if len(errores) >= 2 else None
-        
-        if factor and factor < 0.1:
-            tipo = 'Rápida'
-        elif factor and factor < 0.5:
-            tipo = 'Moderada'
-        else:
-            tipo = 'Lenta'
-        
-        return {
-            'tipo_convergencia': tipo,
-            'orden_convergencia': None,
-            'factor_convergencia': factor
         }
