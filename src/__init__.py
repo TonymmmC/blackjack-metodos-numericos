@@ -8,10 +8,6 @@ Módulos:
     metodos_numericos: Implementación de Bisección, Newton-Raphson y Punto Fijo
     blackjack_game: Lógica matemática del problema de Blackjack
     visualizaciones: Gráficas y visualizaciones de los métodos
-
-Autores: [Nombres de los integrantes]
-Materia: Métodos Numéricos
-Hito: 2 - Solución de Ecuaciones No Lineales
 """
 
 __version__ = "1.0.0"
